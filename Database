@@ -1,0 +1,47 @@
+-- Clean existing tables if re-running
+DROP TABLE IF EXISTS assets CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+
+-- 1. Users Table (Campus Community Members)
+CREATE TABLE users (
+    user_id SERIAL PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,
+    email VARCHAR(150) UNIQUE NOT NULL,
+    department VARCHAR(100) NOT NULL,
+    role VARCHAR(20) DEFAULT 'STUDENT' CHECK (role IN ('STUDENT', 'STAFF', 'ADMIN')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. Assets Table (Hardware Equipment)
+CREATE TABLE assets (
+    asset_id SERIAL PRIMARY KEY,
+    asset_tag VARCHAR(50) UNIQUE NOT NULL, -- e.g., 'LAP-001'
+    name VARCHAR(100) NOT NULL,          -- e.g., 'Dell XPS 15'
+    category VARCHAR(50) NOT NULL,       -- e.g., 'Laptop', 'Projector'
+    status VARCHAR(20) DEFAULT 'AVAILABLE' CHECK (status IN ('AVAILABLE', 'BORROWED', 'MAINTENANCE')),
+    assigned_user_id INTEGER NULL REFERENCES users(user_id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Indexing for Foreign Keys & Status Filters
+CREATE INDEX idx_assets_status ON assets(status);
+CREATE INDEX idx_assets_user ON assets(assigned_user_id);
+
+-- Sample Seed Data
+INSERT INTO users (full_name, email, department, role) VALUES
+('Alex Mensah', 'alex.mensah@campus.edu', 'Computer Engineering', 'STUDENT'),
+('Dr. Sarah Kwame', 's.kwame@campus.edu', 'Computer Engineering', 'STAFF');
+
+INSERT INTO assets (asset_tag, name, category, status, assigned_user_id) VALUES
+('LAP-001', 'MacBook Pro 16"', 'Laptop', 'AVAILABLE', NULL),
+('LAP-002', 'Dell Latitude 5520', 'Laptop', 'BORROWED', (SELECT user_id FROM users WHERE email = 'alex.mensah@campus.edu')),
+('PRJ-001', 'Epson 4K Projector', 'Projector', 'AVAILABLE', NULL);
+
+SELECT 
+    a.asset_tag, 
+    a.name AS item_name, 
+    a.category, 
+    a.status, 
+    u.full_name AS borrowed_by
+FROM assets a
+LEFT JOIN users u ON a.assigned_user_id = u.user_id;
